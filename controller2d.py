@@ -25,6 +25,29 @@ class Controller2D(object):
         self._conv_rad_to_steer  = 180.0 / 70.0 / np.pi
         self._pi                 = np.pi
         self._2pi                = 2.0 * np.pi
+        self.current_ref_pt      = None
+        self.lookahead           = 5 #m
+        self.last_min_idx_speed  = 0
+        self.last_min_idx_ref_pt = 0
+        self.min_idx_update      = False
+
+    def update_desired_waypoint(self):
+        assert(self.min_idx_update,"Update ref speed first")
+        min_idx_ref_pt      = self.last_min_idx_speed
+        min_dist_ref        = float("inf")
+        for i in range(min_idx_ref_pt,len(self._waypoints)):
+            dist = np.linalg.norm(np.array([
+                    self._waypoints[i][0] - self._current_x,
+                    self._waypoints[i][1] - self._current_y]))
+            # only start looking for lookahead after having found the min dist point
+            if abs(dist-self.lookahead) < min_dist_ref:
+                min_dist_ref = dist
+                min_idx_ref_pt = i
+        if min_idx_ref_pt < len(self._waypoints)-1:
+            self.last_min_idx_ref_pt = min_idx_ref_pt
+        else:
+            self.last_min_idx_ref_pt = -1
+        self.current_ref_pt = [self._waypoints[i][0],self._waypoints[i][1]]
 
     def update_values(self, x, y, yaw, speed, timestamp, frame):
         self._current_x         = x
@@ -37,10 +60,10 @@ class Controller2D(object):
             self._start_control_loop = True
 
     def update_desired_speed(self):
-        min_idx       = 0
+        min_idx       = self.last_min_idx_speed
         min_dist      = float("inf")
         desired_speed = 0
-        for i in range(len(self._waypoints)):
+        for i in range(min_idx,len(self._waypoints)):
             dist = np.linalg.norm(np.array([
                     self._waypoints[i][0] - self._current_x,
                     self._waypoints[i][1] - self._current_y]))
@@ -51,7 +74,9 @@ class Controller2D(object):
             desired_speed = self._waypoints[min_idx][2]
         else:
             desired_speed = self._waypoints[-1][2]
+            min_idx = -1
         self._desired_speed = desired_speed
+        self.last_min_idx_speed = min_idx
 
     def update_waypoints(self, new_waypoints):
         self._waypoints = new_waypoints
@@ -92,7 +117,7 @@ class Controller2D(object):
         throttle_output = 0
         steer_output    = 0
         brake_output    = 0
-
+        self.update_desired_waypoint()
         ######################################################
         ######################################################
         # MODULE 7: DECLARE USAGE VARIABLES HERE
@@ -148,7 +173,8 @@ class Controller2D(object):
                     steer_output    : Steer output (-1.22 rad to 1.22 rad)
                     brake_output    : Brake output (0 to 1)
             """
-
+            print(self._desired_speed)
+            print(self.current_ref_pt)
             ######################################################
             ######################################################
             # MODULE 7: IMPLEMENTATION OF LONGITUDINAL CONTROLLER HERE
