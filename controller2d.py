@@ -45,7 +45,7 @@ class Controller2D(object):
         # a is the vector from x1,y1 to x,y
         a = np.array([x-x1,y-y1])
         len_b = np.linalg.norm(b)
-        if len_b<0.001: # b is a boint, return the length of a
+        if len_b<0.0001: # b is a point, return the length of a
             return np.linalg.norm(a)
         else:
             # if b cross a is positive, a lies on the left of b
@@ -251,7 +251,7 @@ class Controller2D(object):
             delta = self._current_yaw + np.arctan2(self.kVs*self.cte,self._current_speed+eps)
             
             # Change the steer output with the lateral controller. 
-            steer_output    = self.KDelta*delta
+            steer_output    = self.KDelta*delta*0
 
             ######################################################
             # SET CONTROLS OUTPUT
