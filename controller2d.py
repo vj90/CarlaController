@@ -27,43 +27,52 @@ class Controller2D(object):
         self._2pi                = 2.0 * np.pi
         self.current_ref_pt      = None
         self.lookahead           = 0 #m
-        self.last_min_idx_speed  = 0
-        self.last_min_idx_ref_pt = -1
-        self.min_idx_update      = False
+        self.last_min_idx_ref_pt = 0
         self.KIv                 = 0    # Integral control for v
         self.KPv                 = 1  # Proportional control for v
         self.KDv                 = 0    # Derivative control for v
         self.kVs                 = 1    # Constant for Stanley controller
         self.KDelta              = 1    # Constant for steering output
         self.cte                 = None # cross-track error
+        self.ref_psi             = None # ref yaw angle
+        self.xFA                 = 0 # x at front axle
+        self.yFA                 = 0 # y at front axle
+
+    def cgToFA(self):
+        lf = 1.5
+        self.xFA = self._current_x + lf*np.cos(self._current_yaw)
+        self.xFA = self._current_y + lf*np.sin(self._current_yaw)
 
     def getMinDistFromVector(self,x1,y1,x2,y2):
-        x = self._current_x
-        y = self._current_y
+        x = self.xFA
+        y = self.yFA
         # b is the vector from x1,y1 to x2,y2
         b = np.array([x2-x1,y2-y1])
         # a is the vector from x1,y1 to x,y
         a = np.array([x-x1,y-y1])
         len_b = np.linalg.norm(b)
         if len_b<0.0001: # b is a point, return the length of a
-            return np.linalg.norm(a)
+            assert False, "Waypoints should not coincide"
         else:
             # if b cross a is positive, a lies on the left of b
             return np.cross(b,a)/len_b
+        
+    def ref_yaw(self,x1,y1,x2,y2):
+        return np.arctan2(y2-y1,x2-x1)
 
     def getMinDistanceFromWaypoints(self):
-        assert(self.last_min_idx_ref_pt>0,"Closest waypoint not set")
-        assert(self.last_min_idx_ref_pt<len(self._waypoints),"Index out of bounds in getMinDistanceFromWaypoints")
+        assert self.last_min_idx_ref_pt>=0,"Closest waypoint not set"
+        assert self.last_min_idx_ref_pt<len(self._waypoints),"Index out of bounds in getMinDistanceFromWaypoints"
         prev_k = self.last_min_idx_ref_pt
         next_k = self.last_min_idx_ref_pt+1
         if self.last_min_idx_ref_pt>len(self._waypoints)-2:
             prev_k = self.last_min_idx_ref_pt -1
             next_k = self.last_min_idx_ref_pt
-        return self.getMinDistFromVector(self._waypoints[prev_k][0],self._waypoints[prev_k][1],self._waypoints[next_k][0],self._waypoints[next_k][1])
+        self.ref_psi = self.ref_yaw(self._waypoints[prev_k][0],self._waypoints[prev_k][1],self._waypoints[next_k][0],self._waypoints[next_k][1])
+        self.cte = self.getMinDistFromVector(self._waypoints[prev_k][0],self._waypoints[prev_k][1],self._waypoints[next_k][0],self._waypoints[next_k][1])
 
-    def update_desired_waypoint(self):
-        assert(self.min_idx_update,"Update ref speed first")
-        min_idx_ref_pt      = self.last_min_idx_speed
+    def updateCTE(self):
+        min_idx_ref_pt      = 0
         min_dist_ref        = float("inf")
         for i in range(min_idx_ref_pt,len(self._waypoints)):
             dist = np.linalg.norm(np.array([
@@ -77,7 +86,7 @@ class Controller2D(object):
             self.last_min_idx_ref_pt = min_idx_ref_pt
         else:
             self.last_min_idx_ref_pt = -1
-        self.cte = self.getMinDistanceFromWaypoints()
+        self.getMinDistanceFromWaypoints()
         self.current_ref_pt = [self._waypoints[self.last_min_idx_ref_pt][0],self._waypoints[self.last_min_idx_ref_pt][1]]
 
     def update_values(self, x, y, yaw, speed, timestamp, frame):
@@ -107,8 +116,7 @@ class Controller2D(object):
             desired_speed = self._waypoints[-1][2]
             min_idx = -1
         self._desired_speed = desired_speed
-        self.last_min_idx_speed = min_idx
-
+        
     def update_waypoints(self, new_waypoints):
         self._waypoints = new_waypoints
 
@@ -140,6 +148,7 @@ class Controller2D(object):
         x               = self._current_x
         y               = self._current_y
         yaw             = self._current_yaw
+        self.cgToFA()
         v               = self._current_speed
         self.update_desired_speed()
         v_desired       = self._desired_speed
@@ -148,8 +157,7 @@ class Controller2D(object):
         throttle_output = 0
         steer_output    = 0
         brake_output    = 0
-        self.update_desired_waypoint()
-        self.min_idx_update = False # Set this to false for next cycle
+        self.updateCTE()
         ######################################################
         ######################################################
         # MODULE 7: DECLARE USAGE VARIABLES HERE
@@ -206,8 +214,6 @@ class Controller2D(object):
                     steer_output    : Steer output (-1.22 rad to 1.22 rad)
                     brake_output    : Brake output (0 to 1)
             """
-            print(self._desired_speed)
-            print(self.current_ref_pt)
             ######################################################
             ######################################################
             # MODULE 7: IMPLEMENTATION OF LONGITUDINAL CONTROLLER HERE
@@ -251,7 +257,10 @@ class Controller2D(object):
             delta = self._current_yaw + np.arctan2(self.kVs*self.cte,self._current_speed+eps)
             
             # Change the steer output with the lateral controller. 
-            steer_output    = self.KDelta*delta*0
+            # Positive --> steer to the right
+            # Also, somehow everzthing is inverted ??
+            # --> error negative --> too far left --> steer right
+            steer_output    = self.KDelta*delta
 
             ######################################################
             # SET CONTROLS OUTPUT
