@@ -100,7 +100,7 @@ class Controller2D(object):
             self._start_control_loop = True
 
     def update_desired_speed(self):
-        min_idx       = self.last_min_idx_speed
+        min_idx       = 0
         min_dist      = float("inf")
         desired_speed = 0
         for i in range(min_idx,len(self._waypoints)):
@@ -254,13 +254,13 @@ class Controller2D(object):
                 example, can treat self.vars.v_previous like a "global variable".
             """
             eps = 0.01
-            delta = self._current_yaw + np.arctan2(self.kVs*self.cte,self._current_speed+eps)
+            delta = 0.05*self._current_yaw + 0.05*np.arctan2(self.kVs*self.cte,self._current_speed+eps)
             
             # Change the steer output with the lateral controller. 
             # Positive --> steer to the right
             # Also, somehow everzthing is inverted ??
             # --> error negative --> too far left --> steer right
-            steer_output    = self.KDelta*delta
+            steer_output    = -1*self.KDelta*delta
 
             ######################################################
             # SET CONTROLS OUTPUT
