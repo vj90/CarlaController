@@ -26,10 +26,16 @@ class Controller2D(object):
         self._pi                 = np.pi
         self._2pi                = 2.0 * np.pi
         self.current_ref_pt      = None
-        self.lookahead           = 5 #m
+        self.lookahead           = 0 #m
         self.last_min_idx_speed  = 0
         self.last_min_idx_ref_pt = 0
         self.min_idx_update      = False
+        self.KIv                 = 0    # Integral control for v
+        self.KPv                 = 0.1  # Proportional control for v
+        self.KDv                 = 0    # Derivative control for v
+        self.kVs                 = 1    # Constant for Stanley controller
+        self.KDelta              = 1    # Constant for steering output
+        self.cte                 = None # cross-track error
 
     def update_desired_waypoint(self):
         assert(self.min_idx_update,"Update ref speed first")
@@ -45,8 +51,10 @@ class Controller2D(object):
                 min_idx_ref_pt = i
         if min_idx_ref_pt < len(self._waypoints)-1:
             self.last_min_idx_ref_pt = min_idx_ref_pt
+            self.cte = min_dist_ref
         else:
             self.last_min_idx_ref_pt = -1
+            self.cte = 0
         self.current_ref_pt = [self._waypoints[i][0],self._waypoints[i][1]]
 
     def update_values(self, x, y, yaw, speed, timestamp, frame):
@@ -118,6 +126,7 @@ class Controller2D(object):
         steer_output    = 0
         brake_output    = 0
         self.update_desired_waypoint()
+        self.min_idx_update = False # Set this to false for next cycle
         ######################################################
         ######################################################
         # MODULE 7: DECLARE USAGE VARIABLES HERE
@@ -139,6 +148,7 @@ class Controller2D(object):
             throttle_output = 0.5 * self.vars.v_previous
         """
         self.vars.create_var('v_previous', 0.0)
+        self.vars.create_var('v_error_integral',0.0)
 
         # Skip the first frame to store previous values properly
         if self._start_control_loop:
@@ -185,12 +195,24 @@ class Controller2D(object):
                 access the persistent variables declared above here. For
                 example, can treat self.vars.v_previous like a "global variable".
             """
+
+            # pid controller
+            # assuming that the constants take care of dt
+            error_ref_v_p = self._desired_speed - v
+            error_ref_v_i = self.vars.v_error_integral
+            self.vars.v_error_integral = self.vars.v_error_integral + error_ref_v_p
+            error_ref_v_d = error_ref_v_p - (self._desired_speed - self.vars.v_previous)  # current error - prev error
+            acc_output = self.KPv*error_ref_v_d + self.KIv*error_ref_v_i + self.KDv*error_ref_v_d
+            
+
             
             # Change these outputs with the longitudinal controller. Note that
             # brake_output is optional and is not required to pass the
             # assignment, as the car will naturally slow down over time.
-            throttle_output = 0
-            brake_output    = 0
+            if acc_output > 0:
+                throttle_output = acc_output
+            else:
+                brake_output    = acc_output
 
             ######################################################
             ######################################################
@@ -202,9 +224,11 @@ class Controller2D(object):
                 access the persistent variables declared above here. For
                 example, can treat self.vars.v_previous like a "global variable".
             """
+            eps = 0.01
+            delta = self._current_yaw + np.arctan2(self.kVs*self.cte,self._current_speed+eps)
             
             # Change the steer output with the lateral controller. 
-            steer_output    = 0
+            steer_output    = self.KDelta*delta
 
             ######################################################
             # SET CONTROLS OUTPUT
