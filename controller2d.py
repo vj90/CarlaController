@@ -31,7 +31,7 @@ class Controller2D(object):
         self.KIv                 = 0.1    # Integral control for v
         self.KPv                 = 1  # Proportional control for v
         self.KDv                 = 0.1    # Derivative control for v
-        self.kVs                 = 1    # Constant for Stanley controller
+        self.kVs                 = 0.8    # Constant for Stanley controller
         self.KDelta              = 1    # Constant for steering output
         self.cte                 = None # cross-track error
         self.ref_psi             = None # ref yaw angle
@@ -141,6 +141,10 @@ class Controller2D(object):
         brake           = np.fmax(np.fmin(input_brake, 1.0), 0.0)
         self._set_brake = brake
 
+    def debugOutput(self):
+        print("CTE = ", self.cte)
+        print("degree error = ", self._current_yaw - self.ref_yaw)
+        
     def update_controls(self):
         ######################################################
         # RETRIEVE SIMULATOR FEEDBACK
@@ -255,7 +259,7 @@ class Controller2D(object):
             """
             eps = 0.01
             delta_yaw = self._current_yaw - self.ref_psi
-            delta = 0.05*delta_yaw + 0.01*np.arctan2(self.kVs*self.cte,self._current_speed+eps)
+            delta = 0.5*delta_yaw + 0.01*np.arctan2(self.kVs*self.cte,self._current_speed+eps)
             
             # Change the steer output with the lateral controller. 
             # Positive --> steer to the right
