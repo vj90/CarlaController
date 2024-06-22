@@ -143,8 +143,8 @@ class Controller2D(object):
 
     def debugOutput(self):
         print("CTE = ", self.cte)
-        print("degree error = ", self._current_yaw - self.ref_yaw)
-        
+        print("degree error = ", str(self._current_yaw - self.ref_yaw))
+
     def update_controls(self):
         ######################################################
         # RETRIEVE SIMULATOR FEEDBACK
@@ -273,7 +273,7 @@ class Controller2D(object):
             self.set_throttle(throttle_output)  # in percent (0 to 1)
             self.set_steer(steer_output)        # in rad (-1.22 to 1.22)
             self.set_brake(brake_output)        # in percent (0 to 1)
-
+            self.debugOutput()
         ######################################################
         ######################################################
         # MODULE 7: STORE OLD VALUES HERE (ADD MORE IF NECESSARY)
