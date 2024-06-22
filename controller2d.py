@@ -28,9 +28,9 @@ class Controller2D(object):
         self.current_ref_pt      = None
         self.lookahead           = 0 #m
         self.last_min_idx_ref_pt = 0
-        self.KIv                 = 0    # Integral control for v
+        self.KIv                 = 0.1    # Integral control for v
         self.KPv                 = 1  # Proportional control for v
-        self.KDv                 = 0    # Derivative control for v
+        self.KDv                 = 0.1    # Derivative control for v
         self.kVs                 = 1    # Constant for Stanley controller
         self.KDelta              = 1    # Constant for steering output
         self.cte                 = None # cross-track error
@@ -41,7 +41,7 @@ class Controller2D(object):
     def cgToFA(self):
         lf = 1.5
         self.xFA = self._current_x + lf*np.cos(self._current_yaw)
-        self.xFA = self._current_y + lf*np.sin(self._current_yaw)
+        self.yFA = self._current_y + lf*np.sin(self._current_yaw)
 
     def getMinDistFromVector(self,x1,y1,x2,y2):
         x = self.xFA
@@ -76,8 +76,8 @@ class Controller2D(object):
         min_dist_ref        = float("inf")
         for i in range(min_idx_ref_pt,len(self._waypoints)):
             dist = np.linalg.norm(np.array([
-                    self._waypoints[i][0] - self._current_x,
-                    self._waypoints[i][1] - self._current_y]))
+                    self._waypoints[i][0] - self.xFA,
+                    self._waypoints[i][1] - self.yFA]))
             # only start looking for lookahead after having found the min dist point
             if abs(dist-self.lookahead) < min_dist_ref:
                 min_dist_ref = dist
@@ -85,7 +85,7 @@ class Controller2D(object):
         if min_idx_ref_pt < len(self._waypoints)-1:
             self.last_min_idx_ref_pt = min_idx_ref_pt
         else:
-            self.last_min_idx_ref_pt = -1
+            self.last_min_idx_ref_pt = len(self._waypoints)-1
         self.getMinDistanceFromWaypoints()
         self.current_ref_pt = [self._waypoints[self.last_min_idx_ref_pt][0],self._waypoints[self.last_min_idx_ref_pt][1]]
 
@@ -254,11 +254,12 @@ class Controller2D(object):
                 example, can treat self.vars.v_previous like a "global variable".
             """
             eps = 0.01
-            delta = 0.05*self._current_yaw + 0.05*np.arctan2(self.kVs*self.cte,self._current_speed+eps)
+            delta_yaw = self.ref_psi - self._current_yaw
+            delta = 0.05*delta_yaw + 0.05*np.arctan2(self.kVs*self.cte,self._current_speed+eps)
             
             # Change the steer output with the lateral controller. 
             # Positive --> steer to the right
-            # Also, somehow everzthing is inverted ??
+            # Also, somehow everything is inverted ??
             # --> error negative --> too far left --> steer right
             steer_output    = -1*self.KDelta*delta
 
