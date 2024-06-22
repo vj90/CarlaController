@@ -255,7 +255,7 @@ class Controller2D(object):
             """
             eps = 0.01
             delta_yaw = self.ref_psi - self._current_yaw
-            delta = 0.05*delta_yaw + 0.05*np.arctan2(self.kVs*self.cte,self._current_speed+eps)
+            delta = 0.05*delta_yaw + 0.01*np.arctan2(self.kVs*self.cte,self._current_speed+eps)
             
             # Change the steer output with the lateral controller. 
             # Positive --> steer to the right
