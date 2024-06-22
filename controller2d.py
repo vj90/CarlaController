@@ -28,10 +28,10 @@ class Controller2D(object):
         self.current_ref_pt      = None
         self.lookahead           = 0 #m
         self.last_min_idx_ref_pt = 0
-        self.KIv                 = 0.1    # Integral control for v
+        self.KIv                 = 0.01    # Integral control for v
         self.KPv                 = 1  # Proportional control for v
-        self.KDv                 = 0.1    # Derivative control for v
-        self.kVs                 = 0.8    # Constant for Stanley controller
+        self.KDv                 = 0.01    # Derivative control for v
+        self.kVs                 = 4.8    # Constant for Stanley controller
         self.KDelta              = 1    # Constant for steering output
         self.cte                 = None # cross-track error
         self.ref_psi             = None # ref yaw angle
@@ -143,7 +143,7 @@ class Controller2D(object):
 
     def debugOutput(self):
         print("CTE = ", self.cte)
-        print("degree error = ", str(self._current_yaw - self.ref_yaw))
+        print("degree error = ", str(self._current_yaw - self.ref_psi))
 
     def update_controls(self):
         ######################################################
@@ -259,7 +259,7 @@ class Controller2D(object):
             """
             eps = 0.01
             delta_yaw = self._current_yaw - self.ref_psi
-            delta = 0.5*delta_yaw + 0.01*np.arctan2(self.kVs*self.cte,self._current_speed+eps)
+            delta = 0.5*delta_yaw + 0.08*np.arctan2(self.kVs*self.cte,self._current_speed+eps)
             
             # Change the steer output with the lateral controller. 
             # Positive --> steer to the right
