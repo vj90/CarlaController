@@ -28,14 +28,38 @@ class Controller2D(object):
         self.current_ref_pt      = None
         self.lookahead           = 0 #m
         self.last_min_idx_speed  = 0
-        self.last_min_idx_ref_pt = 0
+        self.last_min_idx_ref_pt = -1
         self.min_idx_update      = False
         self.KIv                 = 0    # Integral control for v
-        self.KPv                 = 0.1  # Proportional control for v
+        self.KPv                 = 1  # Proportional control for v
         self.KDv                 = 0    # Derivative control for v
         self.kVs                 = 1    # Constant for Stanley controller
         self.KDelta              = 1    # Constant for steering output
         self.cte                 = None # cross-track error
+
+    def getMinDistFromVector(self,x1,y1,x2,y2):
+        x = self._current_x
+        y = self._current_y
+        # b is the vector from x1,y1 to x2,y2
+        b = np.array([x2-x1,y2-y1])
+        # a is the vector from x1,y1 to x,y
+        a = np.array([x-x1,y-y1])
+        len_b = np.linalg.norm(b)
+        if len_b<0.001: # b is a boint, return the length of a
+            return np.linalg.norm(a)
+        else:
+            # if b cross a is positive, a lies on the left of b
+            return np.cross(b,a)/len_b
+
+    def getMinDistanceFromWaypoints(self):
+        assert(self.last_min_idx_ref_pt>0,"Closest waypoint not set")
+        assert(self.last_min_idx_ref_pt<len(self._waypoints),"Index out of bounds in getMinDistanceFromWaypoints")
+        prev_k = self.last_min_idx_ref_pt
+        next_k = self.last_min_idx_ref_pt+1
+        if self.last_min_idx_ref_pt>len(self._waypoints)-2:
+            prev_k = self.last_min_idx_ref_pt -1
+            next_k = self.last_min_idx_ref_pt
+        return self.getMinDistFromVector(self._waypoints[prev_k][0],self._waypoints[prev_k][1],self._waypoints[next_k][0],self._waypoints[next_k][1])
 
     def update_desired_waypoint(self):
         assert(self.min_idx_update,"Update ref speed first")
@@ -51,11 +75,10 @@ class Controller2D(object):
                 min_idx_ref_pt = i
         if min_idx_ref_pt < len(self._waypoints)-1:
             self.last_min_idx_ref_pt = min_idx_ref_pt
-            self.cte = min_dist_ref
         else:
             self.last_min_idx_ref_pt = -1
-            self.cte = 0
-        self.current_ref_pt = [self._waypoints[i][0],self._waypoints[i][1]]
+        self.cte = self.getMinDistanceFromWaypoints()
+        self.current_ref_pt = [self._waypoints[self.last_min_idx_ref_pt][0],self._waypoints[self.last_min_idx_ref_pt][1]]
 
     def update_values(self, x, y, yaw, speed, timestamp, frame):
         self._current_x         = x
@@ -202,7 +225,7 @@ class Controller2D(object):
             error_ref_v_i = self.vars.v_error_integral
             self.vars.v_error_integral = self.vars.v_error_integral + error_ref_v_p
             error_ref_v_d = error_ref_v_p - (self._desired_speed - self.vars.v_previous)  # current error - prev error
-            acc_output = self.KPv*error_ref_v_d + self.KIv*error_ref_v_i + self.KDv*error_ref_v_d
+            acc_output = self.KPv*error_ref_v_p + self.KIv*error_ref_v_i + self.KDv*error_ref_v_d
             
 
             
