@@ -254,7 +254,7 @@ class Controller2D(object):
                 example, can treat self.vars.v_previous like a "global variable".
             """
             eps = 0.01
-            delta_yaw = self.ref_psi - self._current_yaw
+            delta_yaw = self._current_yaw - self.ref_psi
             delta = 0.05*delta_yaw + 0.01*np.arctan2(self.kVs*self.cte,self._current_speed+eps)
             
             # Change the steer output with the lateral controller. 
